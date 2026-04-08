@@ -108,6 +108,11 @@ export class Router {
     return new Map(this.weights);
   }
 
+  /** Replace weights (used by WeightStore.load). */
+  setWeights(weights: Map<string, LearnedWeight>): void {
+    this.weights = new Map(weights);
+  }
+
   /** Classify prompt complexity based on length and structure. */
   private classifyComplexity(prompt: string): TaskComplexity {
     const tokens = Math.ceil(prompt.length / 4);

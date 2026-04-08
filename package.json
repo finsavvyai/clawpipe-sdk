@@ -10,6 +10,7 @@
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
+    "test:stress": "for i in $(seq 1 50); do echo \"Run $i/50\"; vitest run --reporter=dot 2>&1 || exit 1; done && echo 'All 50 runs passed'",
     "lint": "tsc --noEmit",
     "prepublishOnly": "npm run build"
   },

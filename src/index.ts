@@ -1,5 +1,4 @@
 /** ClawPipe SDK — The intelligent AI pipeline. @module clawpipe */
-
 import { Booster } from './booster';
 import { Packer } from './packer';
 import { Cache } from './cache';
@@ -11,15 +10,9 @@ import { RateLimiter } from './rate-limiter';
 import { CircuitBreaker } from './circuit-breaker';
 import { Allowlist } from './allowlist';
 import { AuditLogger } from './audit';
-import type { ClawPipeConfig, PromptOptions, PipelineMeta, PipelineResult, TelemetrySnapshot } from './types';
-
-export type { ClawPipeConfig, PromptOptions, PipelineMeta, PipelineResult, TelemetrySnapshot };
-export type { AllowlistEntry, AuditLogEntry, AuditTransport, GatewayResponse } from './types';
-export type { BudgetStatus } from './budget';
-export type { RateLimitStatus } from './rate-limiter';
-export type { CircuitStatus } from './circuit-breaker';
-export type { RouteDecision } from './router';
-export type { PackResult } from './packer';
+import { Tracer } from './tracer';
+import type { ClawPipeConfig, PromptOptions, PipelineMeta, PipelineResult } from './types';
+export * from './exports';
 
 const DEFAULT_GATEWAY = 'https://api.clawpipe.ai/v1';
 
@@ -36,6 +29,7 @@ export class ClawPipe {
   private circuitBreaker: CircuitBreaker;
   private allowlist: Allowlist;
   private audit: AuditLogger;
+  private enableTrace: boolean;
   private cfg: Required<Pick<ClawPipeConfig, 'enableBooster' | 'enablePacker' | 'enableCache'>>;
 
   constructor(config: ClawPipeConfig) {
@@ -62,6 +56,7 @@ export class ClawPipe {
       projectId: config.projectId, enabled: config.enableAudit ?? false,
       transport: config.auditTransport ?? null,
     });
+    this.enableTrace = config.enableTrace ?? false;
   }
 
   /** Send a prompt through the full pipeline. */
@@ -70,37 +65,54 @@ export class ClawPipe {
     this.budget.check();
     const start = Date.now();
     const meta = this.initMeta();
+    const tracer = new Tracer(this.enableTrace);
 
     // Stage 1: Booster
     if (this.cfg.enableBooster) {
+      tracer.start('Booster');
       const boosted = this.booster.tryResolve(input);
       if (boosted !== null) {
-        return this.finalize(boosted, { ...meta, boosted: true }, start, input, true);
+        tracer.end('Booster', { result: 'resolved' });
+        return this.finalize(boosted, { ...meta, boosted: true }, start, input, true, tracer);
       }
+      tracer.end('Booster', { result: 'pass-through' });
+    } else {
+      tracer.skip('Booster', 'disabled');
     }
 
     // Stage 2: Packer
     let packed = input;
     if (this.cfg.enablePacker) {
+      tracer.start('Packer');
       const result = this.packer.pack(input, options.system);
       packed = result.packed;
       meta.packed = true;
       meta.contextSavings = result.savings;
+      tracer.end('Packer', { savings: result.savings });
+    } else {
+      tracer.skip('Packer', 'disabled');
     }
 
     // Stage 3: Cache
     if (this.cfg.enableCache) {
+      tracer.start('Cache');
       const cached = this.cache.get(this.cache.key(packed, options));
       if (cached) {
-        return this.finalize(cached, { ...meta, cached: true }, start, input, false);
+        tracer.end('Cache', { result: 'hit' });
+        return this.finalize(cached, { ...meta, cached: true }, start, input, false, tracer);
       }
+      tracer.end('Cache', { result: 'miss' });
+    } else {
+      tracer.skip('Cache', 'disabled');
     }
 
     // Stage 4: Route (with allowlist filtering)
+    tracer.start('Router');
     const route = this.router.route(packed, options);
     if (!this.allowlist.isPermitted(route.provider, route.model)) {
       throw new Error(`Model ${route.provider}:${route.model} is not permitted by allowlist`);
     }
+    tracer.end('Router', { model: `${route.provider}:${route.model}` });
 
     // Stage 5: Circuit breaker check
     if (!this.circuitBreaker.isAvailable(route.provider)) {
@@ -111,15 +123,18 @@ export class ClawPipe {
     meta.circuitBreakerState = this.circuitBreaker.status(route.provider).state;
 
     // Stage 6: Call gateway
+    tracer.start('Gateway');
     try {
       const response = await this.gateway.call(packed, options, route);
+      tracer.end('Gateway', { tokensOut: response.tokensOut });
       this.circuitBreaker.recordSuccess(route.provider);
       meta.tokensIn = response.tokensIn;
       meta.tokensOut = response.tokensOut;
       this.router.learn(route, response.latencyMs, response.tokensOut);
       if (this.cfg.enableCache) this.cache.set(this.cache.key(packed, options), response.text);
-      return this.finalize(response.text, meta, start, input, false);
+      return this.finalize(response.text, meta, start, input, false, tracer);
     } catch (err) {
+      tracer.end('Gateway', { error: true });
       this.circuitBreaker.recordFailure(route.provider);
       throw err;
     }
@@ -134,19 +149,10 @@ export class ClawPipe {
     yield* this.gateway.stream(packed, options, route);
   }
 
-  /** Get telemetry snapshot. */
-  stats(): TelemetrySnapshot { return this.telemetry.snapshot(); }
-
-  /** Get budget status. */
+  stats() { return this.telemetry.snapshot(); }
   budgetStatus() { return this.budget.status(); }
-
-  /** Get rate limit status. */
   rateLimitStatus() { return this.rateLimiter.status(); }
-
-  /** Get circuit breaker statuses. */
   circuitStatus() { return this.circuitBreaker.allStatuses(); }
-
-  /** Get audit logs. */
   auditLogs() { return this.audit.getLogs(); }
 
   private initMeta(): PipelineMeta {
@@ -159,7 +165,8 @@ export class ClawPipe {
   }
 
   private finalize(
-    text: string, meta: PipelineMeta, start: number, input: string, isBoosted: boolean,
+    text: string, meta: PipelineMeta, start: number, input: string,
+    isBoosted: boolean, tracer?: Tracer,
   ): PipelineResult {
     meta.latencyMs = Date.now() - start;
     const cost = this.telemetry.estimateCost(meta.route, meta.model, meta.tokensIn, meta.tokensOut);
@@ -179,18 +186,9 @@ export class ClawPipe {
       estimatedCostUsd: meta.estimatedCostUsd, cached: meta.cached, boosted: meta.boosted,
       promptHash: AuditLogger.hashPrompt(input),
     });
-    return { text, meta };
+    const result: PipelineResult = { text, meta };
+    if (tracer?.isEnabled()) result.trace = tracer.format();
+    return result;
   }
 }
 
-export { Booster } from './booster';
-export { Packer } from './packer';
-export { Cache } from './cache';
-export { Router } from './router';
-export { Gateway, GatewayError } from './gateway';
-export { Telemetry } from './telemetry';
-export { Budget, BudgetExceededError } from './budget';
-export { RateLimiter, RateLimitError } from './rate-limiter';
-export { CircuitBreaker } from './circuit-breaker';
-export { Allowlist } from './allowlist';
-export { AuditLogger } from './audit';

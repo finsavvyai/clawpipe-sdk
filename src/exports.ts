@@ -1,0 +1,33 @@
+/** Re-exports for all ClawPipe modules. */
+
+export type { ClawPipeConfig, PromptOptions, PipelineMeta, PipelineResult, TelemetrySnapshot } from './types';
+export type { AllowlistEntry, AuditLogEntry, AuditTransport, GatewayResponse } from './types';
+export type { BudgetStatus } from './budget';
+export type { RateLimitStatus } from './rate-limiter';
+export type { CircuitStatus } from './circuit-breaker';
+export type { RouteDecision } from './router';
+export type { PackResult } from './packer';
+export type { SwarmConfig, SwarmStrategy, SwarmResult, SwarmCandidate } from './swarm';
+export type { SemanticCacheConfig } from './semantic-cache';
+export type { StageTrace, TraceEvent } from './tracer';
+export type { StoredWeight } from './weight-store';
+
+export { Booster } from './booster';
+export { Packer } from './packer';
+export { Cache } from './cache';
+export { Router } from './router';
+export { Gateway, GatewayError } from './gateway';
+export { Telemetry } from './telemetry';
+export { Budget, BudgetExceededError } from './budget';
+export { RateLimiter, RateLimitError } from './rate-limiter';
+export { CircuitBreaker } from './circuit-breaker';
+export { Allowlist } from './allowlist';
+export { AuditLogger } from './audit';
+export { Tracer } from './tracer';
+export { WeightStore } from './weight-store';
+export { LocalProvider } from './local-provider';
+export { Swarm } from './swarm';
+export { SemanticCache } from './semantic-cache';
+export { LocalGateway } from './local-gateway';
+export { Voice } from './voice';
+export { Rag } from './rag';

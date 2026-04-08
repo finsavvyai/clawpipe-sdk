@@ -28,6 +28,7 @@ Options:
   --no-cache                 Disable cache for this request
   --no-booster               Disable booster for this request
   --system <text>            Set system prompt
+  --trace                    Show pipeline stage timing breakdown
 
 Environment:
   CLAWPIPE_API_KEY           API key (required for gateway calls)
@@ -57,6 +58,8 @@ async function main(): Promise<void> {
     await runPrompt(pipe, args);
   } else if (command === 'stats') {
     showStats(pipe);
+  } else if (command === 'export') {
+    exportStats(pipe);
   } else if (command === 'config') {
     showConfig();
   } else {
@@ -72,6 +75,7 @@ function createClient(args: string[]): ClawPipe {
     gatewayUrl: process.env.CLAWPIPE_GATEWAY_URL,
     enableCache: !args.includes('--no-cache'),
     enableBooster: !args.includes('--no-booster'),
+    enableTrace: args.includes('--trace'),
   });
 }
 
@@ -121,6 +125,7 @@ async function runPrompt(pipe: ClawPipe, args: string[]): Promise<void> {
   console.error(`\n--- meta: ${result.meta.route}/${result.meta.model} | ` +
     `${result.meta.latencyMs}ms | savings: ${result.meta.contextSavings} | ` +
     `cached: ${result.meta.cached} | boosted: ${result.meta.boosted}`);
+  if (result.trace) console.error(`\n--- trace:\n${result.trace}`);
 }
 
 function showStats(pipe: ClawPipe): void {
@@ -134,6 +139,10 @@ function showStats(pipe: ClawPipe): void {
   console.log(`  Booster hits: ${stats.totalSavedByBooster}`);
   console.log(`  Avg latency:  ${stats.avgLatencyMs}ms`);
   console.log(`  Cache rate:   ${stats.cacheHitRate}`);
+}
+
+function exportStats(pipe: ClawPipe): void {
+  console.log(JSON.stringify(pipe.stats(), null, 2));
 }
 
 function showConfig(): void {

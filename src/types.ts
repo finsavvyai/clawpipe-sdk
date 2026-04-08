@@ -10,6 +10,12 @@ export interface ClawPipeConfig {
   enableBooster?: boolean;
   enablePacker?: boolean;
   enableCache?: boolean;
+  /** Enable pipeline stage tracing. Default: false. */
+  enableTrace?: boolean;
+  /** URL of a local LLM server (e.g. llamafile). Auto-detected if omitted. */
+  localModelUrl?: string;
+  /** Enable local model auto-detection on init. Default: false. */
+  enableLocalFallback?: boolean;
   /** Budget cap in USD. Requests are rejected when exceeded. */
   budgetCapUsd?: number;
   /** Soft budget warning threshold in USD. Emits warning but allows requests. */
@@ -60,6 +66,8 @@ export interface PipelineMeta {
 export interface PipelineResult {
   text: string;
   meta: PipelineMeta;
+  /** Pipeline stage trace (only when enableTrace is true). */
+  trace?: string;
 }
 
 export interface AllowlistEntry {
