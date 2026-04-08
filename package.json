@@ -1,6 +1,6 @@
 {
   "name": "clawpipe-ai",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "The intelligent AI pipeline. Booster, Context Packing, Caching, Smart Routing, Multi-Provider Gateway, and Swarm Orchestration \u2014 all in one SDK.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -30,7 +30,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/clawpipe/clawpipe"
+    "url": "https://clawpipe.ai"
   },
   "engines": {
     "node": ">=18"
@@ -40,5 +40,6 @@
     "typescript": "^5.4.0",
     "vitest": "^1.6.0",
     "@types/node": "^20.0.0"
-  }
+  },
+  "homepage": "https://clawpipe.ai"
 }
