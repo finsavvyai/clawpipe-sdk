@@ -1,0 +1,44 @@
+{
+  "name": "clawpipe",
+  "version": "1.0.0",
+  "description": "The intelligent AI pipeline. Booster, Context Packing, Caching, Smart Routing, Multi-Provider Gateway, and Swarm Orchestration — all in one SDK.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "clawpipe": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "llm",
+    "ai",
+    "pipeline",
+    "caching",
+    "routing",
+    "openai",
+    "anthropic",
+    "deepseek",
+    "cost-optimization"
+  ],
+  "author": "ClawPipe",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/clawpipe/clawpipe"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0",
+    "@types/node": "^20.0.0"
+  }
+}
