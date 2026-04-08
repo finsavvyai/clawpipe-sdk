@@ -1,7 +1,7 @@
 {
   "name": "clawpipe-ai",
-  "version": "1.0.3",
-  "description": "The intelligent AI pipeline. Booster, Context Packing, Caching, Smart Routing, Multi-Provider Gateway, and Swarm Orchestration — all in one SDK.",
+  "version": "2.0.0",
+  "description": "The intelligent AI pipeline. Booster, Context Packing, Caching, Smart Routing, Multi-Provider Gateway, Budget Caps, Rate Limiting, Circuit Breaker, Audit Logging — all in one SDK.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {

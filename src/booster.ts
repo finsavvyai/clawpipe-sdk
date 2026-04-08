@@ -9,6 +9,8 @@
  * - Simple lookups and conversions
  */
 
+import { safeEvalMath } from './math-eval';
+
 interface BoosterRule {
   name: string;
   test: (input: string) => boolean;
@@ -86,9 +88,8 @@ export class Booster {
       },
       resolve: (input) => {
         const match = input.match(mathPattern)!;
-        const expr = match[1].trim().replace('^', '**');
-        const result = new Function(`return (${expr})`)();
-        return String(result);
+        const expr = match[1].trim().replace(/\^/g, '**');
+        return String(safeEvalMath(expr));
       },
     };
   }

@@ -1,183 +1,185 @@
-/**
- * ClawPipe SDK — The intelligent AI pipeline.
- * Booster -> Pack -> Cache -> Route -> Call -> Learn.
- *
- * @module clawpipe
- */
+/** ClawPipe SDK — The intelligent AI pipeline. @module clawpipe */
 
 import { Booster } from './booster';
 import { Packer } from './packer';
 import { Cache } from './cache';
 import { Router } from './router';
+import { Gateway } from './gateway';
+import { Telemetry } from './telemetry';
+import { Budget } from './budget';
+import { RateLimiter } from './rate-limiter';
+import { CircuitBreaker } from './circuit-breaker';
+import { Allowlist } from './allowlist';
+import { AuditLogger } from './audit';
+import type { ClawPipeConfig, PromptOptions, PipelineMeta, PipelineResult, TelemetrySnapshot } from './types';
 
-export interface ClawPipeConfig {
-  apiKey: string;
-  projectId: string;
-  gatewayUrl?: string;
-  cacheTtlMs?: number;
-  enableBooster?: boolean;
-  enablePacker?: boolean;
-  enableCache?: boolean;
-}
+export type { ClawPipeConfig, PromptOptions, PipelineMeta, PipelineResult, TelemetrySnapshot };
+export type { AllowlistEntry, AuditLogEntry, AuditTransport, GatewayResponse } from './types';
+export type { BudgetStatus } from './budget';
+export type { RateLimitStatus } from './rate-limiter';
+export type { CircuitStatus } from './circuit-breaker';
+export type { RouteDecision } from './router';
+export type { PackResult } from './packer';
 
-export interface PromptOptions {
-  system?: string;
-  maxTokens?: number;
-  temperature?: number;
-  model?: string;
-  provider?: string;
-  taskType?: string;
-}
+const DEFAULT_GATEWAY = 'https://api.clawpipe.ai/v1';
 
-export interface PipelineMeta {
-  boosted: boolean;
-  cached: boolean;
-  packed: boolean;
-  contextSavings: string;
-  route: string;
-  model: string;
-  latencyMs: number;
-  tokensIn: number;
-  tokensOut: number;
-}
-
-export interface PipelineResult {
-  text: string;
-  meta: PipelineMeta;
-}
-
-const DEFAULT_GATEWAY = 'https://api.clawpipe.dev/v1';
-
-/**
- * ClawPipe client — runs the full pipeline on every prompt.
- */
+/** ClawPipe client — runs the full pipeline on every prompt. */
 export class ClawPipe {
-  private config: Required<ClawPipeConfig>;
   private booster: Booster;
   private packer: Packer;
   private cache: Cache;
   private router: Router;
+  private gateway: Gateway;
+  private telemetry: Telemetry;
+  private budget: Budget;
+  private rateLimiter: RateLimiter;
+  private circuitBreaker: CircuitBreaker;
+  private allowlist: Allowlist;
+  private audit: AuditLogger;
+  private cfg: Required<Pick<ClawPipeConfig, 'enableBooster' | 'enablePacker' | 'enableCache'>>;
 
   constructor(config: ClawPipeConfig) {
-    this.config = {
-      gatewayUrl: DEFAULT_GATEWAY,
-      cacheTtlMs: 300_000,
-      enableBooster: true,
-      enablePacker: true,
-      enableCache: true,
-      ...config,
+    const gatewayUrl = config.gatewayUrl ?? DEFAULT_GATEWAY;
+    this.cfg = {
+      enableBooster: config.enableBooster ?? true,
+      enablePacker: config.enablePacker ?? true,
+      enableCache: config.enableCache ?? true,
     };
     this.booster = new Booster();
     this.packer = new Packer();
-    this.cache = new Cache(this.config.cacheTtlMs);
+    this.cache = new Cache(config.cacheTtlMs ?? 300_000);
     this.router = new Router();
+    this.gateway = new Gateway({ gatewayUrl, apiKey: config.apiKey, projectId: config.projectId });
+    this.telemetry = new Telemetry();
+    this.budget = new Budget({ capUsd: config.budgetCapUsd, warnUsd: config.budgetWarnUsd });
+    this.rateLimiter = new RateLimiter({ maxRequests: config.rateLimitPerDay });
+    this.circuitBreaker = new CircuitBreaker({
+      failureThreshold: config.circuitBreakerThreshold,
+      recoveryMs: config.circuitBreakerRecoveryMs,
+    });
+    this.allowlist = new Allowlist({ allow: config.allowlist, deny: config.denylist });
+    this.audit = new AuditLogger({
+      projectId: config.projectId, enabled: config.enableAudit ?? false,
+      transport: config.auditTransport ?? null,
+    });
   }
 
   /** Send a prompt through the full pipeline. */
   async prompt(input: string, options: PromptOptions = {}): Promise<PipelineResult> {
+    this.rateLimiter.check();
+    this.budget.check();
     const start = Date.now();
-    const meta: Partial<PipelineMeta> = {
-      boosted: false, cached: false, packed: false,
-      contextSavings: '0%', route: '', model: '', tokensIn: 0, tokensOut: 0,
-    };
+    const meta = this.initMeta();
 
-    // Stage 1: Booster — try to resolve without LLM
-    if (this.config.enableBooster) {
+    // Stage 1: Booster
+    if (this.cfg.enableBooster) {
       const boosted = this.booster.tryResolve(input);
       if (boosted !== null) {
-        meta.boosted = true;
-        meta.latencyMs = Date.now() - start;
-        return { text: boosted, meta: meta as PipelineMeta };
+        return this.finalize(boosted, { ...meta, boosted: true }, start, input, true);
       }
     }
 
-    // Stage 2: Packer — compress context
+    // Stage 2: Packer
     let packed = input;
-    if (this.config.enablePacker) {
+    if (this.cfg.enablePacker) {
       const result = this.packer.pack(input, options.system);
       packed = result.packed;
       meta.packed = true;
       meta.contextSavings = result.savings;
     }
 
-    // Stage 3: Cache — check for cached response
-    if (this.config.enableCache) {
-      const cacheKey = this.cache.key(packed, options);
-      const cached = this.cache.get(cacheKey);
+    // Stage 3: Cache
+    if (this.cfg.enableCache) {
+      const cached = this.cache.get(this.cache.key(packed, options));
       if (cached) {
-        meta.cached = true;
-        meta.latencyMs = Date.now() - start;
-        return { text: cached, meta: meta as PipelineMeta };
+        return this.finalize(cached, { ...meta, cached: true }, start, input, false);
       }
     }
 
-    // Stage 4: Route — pick best provider/model
+    // Stage 4: Route (with allowlist filtering)
     const route = this.router.route(packed, options);
+    if (!this.allowlist.isPermitted(route.provider, route.model)) {
+      throw new Error(`Model ${route.provider}:${route.model} is not permitted by allowlist`);
+    }
+
+    // Stage 5: Circuit breaker check
+    if (!this.circuitBreaker.isAvailable(route.provider)) {
+      throw new Error(`Provider ${route.provider} circuit is open (too many failures)`);
+    }
     meta.route = route.provider;
     meta.model = route.model;
+    meta.circuitBreakerState = this.circuitBreaker.status(route.provider).state;
 
-    // Stage 5: Call — send to gateway
-    const response = await this.callGateway(packed, options, route);
-    meta.tokensIn = response.tokensIn;
-    meta.tokensOut = response.tokensOut;
-
-    // Stage 6: Learn — record outcome for routing improvement
-    this.router.learn(route, response.latencyMs, response.tokensOut);
-
-    // Store in cache
-    if (this.config.enableCache) {
-      const cacheKey = this.cache.key(packed, options);
-      this.cache.set(cacheKey, response.text);
+    // Stage 6: Call gateway
+    try {
+      const response = await this.gateway.call(packed, options, route);
+      this.circuitBreaker.recordSuccess(route.provider);
+      meta.tokensIn = response.tokensIn;
+      meta.tokensOut = response.tokensOut;
+      this.router.learn(route, response.latencyMs, response.tokensOut);
+      if (this.cfg.enableCache) this.cache.set(this.cache.key(packed, options), response.text);
+      return this.finalize(response.text, meta, start, input, false);
+    } catch (err) {
+      this.circuitBreaker.recordFailure(route.provider);
+      throw err;
     }
-
-    meta.latencyMs = Date.now() - start;
-    return { text: response.text, meta: meta as PipelineMeta };
   }
 
-  /** Stream a prompt through the pipeline. Yields text chunks. */
+  /** Stream a prompt through the pipeline. */
   async *stream(input: string, options: PromptOptions = {}): AsyncGenerator<string> {
-    const packed = this.config.enablePacker
-      ? this.packer.pack(input, options.system).packed
-      : input;
+    this.rateLimiter.check();
+    const packed = this.cfg.enablePacker ? this.packer.pack(input, options.system).packed : input;
     const route = this.router.route(packed, options);
-    const url = `${this.config.gatewayUrl}/stream`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: this.buildHeaders(),
-      body: JSON.stringify({ prompt: packed, ...options, ...route }),
-    });
-    if (!res.ok) throw new Error(`ClawPipe stream error: ${res.status}`);
-    if (!res.body) throw new Error('No response body for stream');
-    const decoder = new TextDecoder();
-    const reader = res.body.getReader();
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      yield decoder.decode(value, { stream: true });
-    }
+    this.rateLimiter.record();
+    yield* this.gateway.stream(packed, options, route);
   }
 
-  private async callGateway(
-    prompt: string, options: PromptOptions, route: { provider: string; model: string },
-  ) {
-    const url = `${this.config.gatewayUrl}/prompt`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: this.buildHeaders(),
-      body: JSON.stringify({ prompt, ...options, ...route }),
-    });
-    if (!res.ok) throw new Error(`ClawPipe gateway error: ${res.status}`);
-    return res.json() as Promise<{
-      text: string; tokensIn: number; tokensOut: number; latencyMs: number;
-    }>;
-  }
+  /** Get telemetry snapshot. */
+  stats(): TelemetrySnapshot { return this.telemetry.snapshot(); }
 
-  private buildHeaders(): Record<string, string> {
+  /** Get budget status. */
+  budgetStatus() { return this.budget.status(); }
+
+  /** Get rate limit status. */
+  rateLimitStatus() { return this.rateLimiter.status(); }
+
+  /** Get circuit breaker statuses. */
+  circuitStatus() { return this.circuitBreaker.allStatuses(); }
+
+  /** Get audit logs. */
+  auditLogs() { return this.audit.getLogs(); }
+
+  private initMeta(): PipelineMeta {
     return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${this.config.apiKey}`,
-      'X-Project-Id': this.config.projectId,
+      boosted: false, cached: false, packed: false, contextSavings: '0%',
+      route: '', model: '', latencyMs: 0, tokensIn: 0, tokensOut: 0,
+      estimatedCostUsd: 0, budgetRemainingUsd: null, rateLimitRemaining: null,
+      circuitBreakerState: 'closed',
     };
+  }
+
+  private finalize(
+    text: string, meta: PipelineMeta, start: number, input: string, isBoosted: boolean,
+  ): PipelineResult {
+    meta.latencyMs = Date.now() - start;
+    const cost = this.telemetry.estimateCost(meta.route, meta.model, meta.tokensIn, meta.tokensOut);
+    meta.estimatedCostUsd = isBoosted || meta.cached ? 0 : cost;
+    this.telemetry.record({
+      provider: meta.route, model: meta.model, tokensIn: meta.tokensIn,
+      tokensOut: meta.tokensOut, latencyMs: meta.latencyMs, costUsd: meta.estimatedCostUsd,
+      cached: meta.cached, boosted: meta.boosted,
+    });
+    if (!isBoosted && !meta.cached) this.budget.record(meta.estimatedCostUsd);
+    this.rateLimiter.record();
+    meta.budgetRemainingUsd = this.budget.status().remainingUsd;
+    meta.rateLimitRemaining = this.rateLimiter.status().remaining;
+    this.audit.log({
+      action: 'prompt', provider: meta.route, model: meta.model,
+      tokensIn: meta.tokensIn, tokensOut: meta.tokensOut, latencyMs: meta.latencyMs,
+      estimatedCostUsd: meta.estimatedCostUsd, cached: meta.cached, boosted: meta.boosted,
+      promptHash: AuditLogger.hashPrompt(input),
+    });
+    return { text, meta };
   }
 }
 
@@ -185,3 +187,10 @@ export { Booster } from './booster';
 export { Packer } from './packer';
 export { Cache } from './cache';
 export { Router } from './router';
+export { Gateway, GatewayError } from './gateway';
+export { Telemetry } from './telemetry';
+export { Budget, BudgetExceededError } from './budget';
+export { RateLimiter, RateLimitError } from './rate-limiter';
+export { CircuitBreaker } from './circuit-breaker';
+export { Allowlist } from './allowlist';
+export { AuditLogger } from './audit';
