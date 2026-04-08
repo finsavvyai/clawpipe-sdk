@@ -107,7 +107,7 @@ export class Booster {
 
   private unitConversionRule(): BoosterRule {
     const pattern = /convert\s+([\d.]+)\s+(\w+)\s+to\s+(\w+)/i;
-    const conversions: Record<string, Record<string, number>> = {
+    const conversions: Record<string, Record<string, number | ((v: number) => number)>> = {
       km: { miles: 0.621371, m: 1000, ft: 3280.84 },
       miles: { km: 1.60934, m: 1609.34, ft: 5280 },
       kg: { lbs: 2.20462, g: 1000, oz: 35.274 },

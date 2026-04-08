@@ -32,7 +32,7 @@ export class Cache {
   }
 
   /** Generate a cache key from prompt and options. */
-  key(prompt: string, options: Record<string, unknown> = {}): string {
+  key(prompt: string, options: object = {}): string {
     const raw = JSON.stringify({ prompt, options });
     return this.hash(raw);
   }
