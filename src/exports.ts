@@ -31,3 +31,6 @@ export { SemanticCache } from './semantic-cache';
 export { LocalGateway } from './local-gateway';
 export { Voice } from './voice';
 export { Rag } from './rag';
+export { OpenAI as OpenAICompat } from './openai-compat';
+export type { ChatCompletion, ChatCompletionMessage, Choice, CompletionUsage } from './openai-compat';
+export type { OpenAIConfig, CreateParams } from './openai-compat';
