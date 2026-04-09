@@ -46,7 +46,7 @@ async function main(): Promise<void> {
   }
 
   if (command === 'version' || command === '--version') {
-    console.log('clawpipe-ai v1.0.3');
+    console.log('clawpipe-ai v3.0.0');
     return;
   }
 
