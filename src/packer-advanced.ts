@@ -1,12 +1,4 @@
-/**
- * Advanced Packer — LLMLingua-inspired prompt compression.
- *
- * Composable techniques (no LM required):
- *   filler-phrase rewrite, JSON minify, code comment/signature compaction,
- *   sentence scoring + low-value drop, entity extraction (RAG), listing
- *   stopword strip. Preserves fenced code, inline code, quoted strings.
- */
-
+/** Advanced Packer — LLMLingua-inspired prompt compression without an LM. */
 export interface AdvancedPackConfig {
   targetCompressionRatio?: number;
   preserveCodeBlocks?: boolean;
@@ -62,18 +54,22 @@ export class AdvancedPacker {
     const pq = config.preserveQuotes ?? true;
     const techniques: string[] = [];
     const originalTokens = this.estimateTokens(text);
-    const { masked, spans } = this.mask(text, pc, pq);
+
+    // Compact code/JSON BEFORE masking so those spans are visible.
+    let pre = text;
+    const c = this.compactCode(pre);
+    if (c !== pre) techniques.push('code-compact');
+    pre = c;
+    const j = this.compactJson(pre);
+    if (j !== pre) techniques.push('json-compact');
+    pre = j;
+
+    const { masked, spans } = this.mask(pre, pc, pq);
     let work = masked;
 
     const f = this.removeFillerPhrases(work);
     if (f !== work) techniques.push('filler-phrases');
     work = f;
-    const j = this.compactJson(work);
-    if (j !== work) techniques.push('json-compact');
-    work = j;
-    const c = this.compactCode(work);
-    if (c !== work) techniques.push('code-compact');
-    work = c;
 
     if (mode !== 'conservative') {
       const ls = this.stripListingFillers(work);
@@ -86,10 +82,12 @@ export class AdvancedPacker {
       work = e;
     }
 
-    const curT = this.estimateTokens(this.unmask(work, spans));
-    if (curT > originalTokens * (1 - ratio) && mode !== 'conservative') {
-      const need = 1 - (originalTokens * (1 - ratio)) / Math.max(1, curT);
-      work = this.dropLowValueSentences(work, Math.max(0, Math.min(0.8, need)));
+    if (mode !== 'conservative') {
+      const curT = this.estimateTokens(this.unmask(work, spans));
+      const target = originalTokens * (1 - ratio);
+      const need = curT > target ? 1 - target / Math.max(1, curT) : 0.2;
+      const floor = mode === 'aggressive' ? 0.4 : 0.25;
+      work = this.dropLowValueSentences(work, Math.max(floor, Math.min(0.8, need)));
       techniques.push('sentence-drop');
     }
 
@@ -132,12 +130,19 @@ export class AdvancedPacker {
   }
 
   private dropInPara(p: string, reduction: number): string {
-    const sents = p.match(/[^.!?]+[.!?]+|\S[^.!?]*$/g);
+    const guarded = p.replace(/(\d)\.(\d)/g, '$1\u0001$2');
+    const rawSents = guarded.match(/[^.!?]+[.!?]+|\S[^.!?]*$/g);
+    const sents = rawSents?.map((s) => s.replace(/\u0001/g, '.'));
     if (!sents || sents.length <= 2) return p;
     const scored = sents.map((s, i) => ({ s, i, score: this.scoreSentence(s, i, sents.length) }));
-    const sorted = [...scored].sort((a, b) => a.score - b.score);
-    const n = Math.floor(sents.length * reduction);
-    const drop = new Set(sorted.slice(0, n).filter((x) => x.i !== 0 && x.i !== sents.length - 1).map((x) => x.i));
+    // Hard preservation: first, last, anything containing digits or preserved spans.
+    const protectedIdx = new Set<number>();
+    for (const x of scored) {
+      if (x.i === 0 || x.i === sents.length - 1 || /\d|\u0000/.test(x.s)) protectedIdx.add(x.i);
+    }
+    const droppable = scored.filter((x) => !protectedIdx.has(x.i)).sort((a, b) => a.score - b.score);
+    const n = Math.min(droppable.length, Math.ceil(sents.length * reduction));
+    const drop = new Set(droppable.slice(0, n).map((x) => x.i));
     return scored.filter((x) => !drop.has(x.i)).map((x) => x.s).join(' ').replace(/\s+/g, ' ').trim();
   }
 

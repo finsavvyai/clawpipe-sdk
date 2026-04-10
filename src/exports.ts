@@ -7,6 +7,7 @@ export type { RateLimitStatus } from './rate-limiter';
 export type { CircuitStatus } from './circuit-breaker';
 export type { RouteDecision } from './router';
 export type { PackResult } from './packer';
+export type { AdvancedPackConfig, AdvancedPackResult } from './packer-advanced';
 export type { SwarmConfig, SwarmStrategy, SwarmResult, SwarmCandidate } from './swarm';
 export type { SemanticCacheConfig } from './semantic-cache';
 export type { StageTrace, TraceEvent } from './tracer';
@@ -16,6 +17,7 @@ export type { ModerationConfig, ModerationResult } from './moderation';
 
 export { Booster } from './booster';
 export { Packer } from './packer';
+export { AdvancedPacker } from './packer-advanced';
 export { Cache } from './cache';
 export { Router } from './router';
 export { Gateway, GatewayError } from './gateway';

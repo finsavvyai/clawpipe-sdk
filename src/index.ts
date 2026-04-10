@@ -19,20 +19,11 @@ const DEFAULT_GATEWAY = 'https://api.clawpipe.ai/v1';
 
 /** ClawPipe client — runs the full pipeline on every prompt. */
 export class ClawPipe {
-  private booster: Booster;
-  private packer: Packer;
-  private cache: Cache;
-  private router: Router;
-  private gateway: Gateway;
-  private telemetry: Telemetry;
-  private budget: Budget;
-  private rateLimiter: RateLimiter;
-  private circuitBreaker: CircuitBreaker;
-  private allowlist: Allowlist;
-  private audit: AuditLogger;
-  private guard: Guard;
-  private enableGuard: boolean;
-  private enableTrace: boolean;
+  private booster: Booster; private packer: Packer; private cache: Cache; private router: Router;
+  private gateway: Gateway; private telemetry: Telemetry; private budget: Budget;
+  private rateLimiter: RateLimiter; private circuitBreaker: CircuitBreaker;
+  private allowlist: Allowlist; private audit: AuditLogger; private guard: Guard;
+  private enableGuard: boolean; private enableTrace: boolean;
   private cfg: Required<Pick<ClawPipeConfig, 'enableBooster' | 'enablePacker' | 'enableCache'>>;
 
   constructor(config: ClawPipeConfig) {
@@ -139,6 +130,7 @@ export class ClawPipe {
     }
   }
 
+
   /** Stream a prompt through the pipeline. */
   async *stream(input: string, options: PromptOptions = {}): AsyncGenerator<string> {
     this.rateLimiter.check();
@@ -171,10 +163,9 @@ export class ClawPipe {
 
   private initMeta(): PipelineMeta {
     return {
-      boosted: false, cached: false, packed: false, contextSavings: '0%',
-      route: '', model: '', latencyMs: 0, tokensIn: 0, tokensOut: 0,
-      estimatedCostUsd: 0, budgetRemainingUsd: null, rateLimitRemaining: null,
-      circuitBreakerState: 'closed',
+      boosted: false, cached: false, packed: false, contextSavings: '0%', route: '', model: '',
+      latencyMs: 0, tokensIn: 0, tokensOut: 0, estimatedCostUsd: 0,
+      budgetRemainingUsd: null, rateLimitRemaining: null, circuitBreakerState: 'closed',
     };
   }
 
@@ -205,5 +196,4 @@ export class ClawPipe {
     return result;
   }
 }
-
 
