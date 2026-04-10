@@ -36,6 +36,12 @@ export interface ClawPipeConfig {
   circuitBreakerThreshold?: number;
   /** Circuit breaker recovery time in ms. Default: 30000. */
   circuitBreakerRecoveryMs?: number;
+  /** Enable prompt-injection detection + PII redaction guard. Default: false. */
+  enableGuard?: boolean;
+  /** Block requests when injection score exceeds threshold. Default: false. */
+  guardBlockOnInjection?: boolean;
+  /** Injection score threshold [0,1]. Default: 0.5. */
+  guardInjectionThreshold?: number;
 }
 
 export interface PromptOptions {

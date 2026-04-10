@@ -11,6 +11,7 @@ import { CircuitBreaker } from './circuit-breaker';
 import { Allowlist } from './allowlist';
 import { AuditLogger } from './audit';
 import { Tracer } from './tracer';
+import { Guard, GuardError } from './guard';
 import type { ClawPipeConfig, PromptOptions, PipelineMeta, PipelineResult } from './types';
 export * from './exports';
 
@@ -29,6 +30,8 @@ export class ClawPipe {
   private circuitBreaker: CircuitBreaker;
   private allowlist: Allowlist;
   private audit: AuditLogger;
+  private guard: Guard;
+  private enableGuard: boolean;
   private enableTrace: boolean;
   private cfg: Required<Pick<ClawPipeConfig, 'enableBooster' | 'enablePacker' | 'enableCache'>>;
 
@@ -48,8 +51,7 @@ export class ClawPipe {
     this.budget = new Budget({ capUsd: config.budgetCapUsd, warnUsd: config.budgetWarnUsd });
     this.rateLimiter = new RateLimiter({ maxRequests: config.rateLimitPerDay });
     this.circuitBreaker = new CircuitBreaker({
-      failureThreshold: config.circuitBreakerThreshold,
-      recoveryMs: config.circuitBreakerRecoveryMs,
+      failureThreshold: config.circuitBreakerThreshold, recoveryMs: config.circuitBreakerRecoveryMs,
     });
     this.allowlist = new Allowlist({ allow: config.allowlist, deny: config.denylist });
     this.audit = new AuditLogger({
@@ -57,6 +59,11 @@ export class ClawPipe {
       transport: config.auditTransport ?? null,
     });
     this.enableTrace = config.enableTrace ?? false;
+    this.enableGuard = config.enableGuard ?? false;
+    this.guard = new Guard({
+      blockOnInjection: config.guardBlockOnInjection ?? false,
+      injectionThreshold: config.guardInjectionThreshold,
+    });
   }
 
   /** Send a prompt through the full pipeline. */
@@ -67,31 +74,29 @@ export class ClawPipe {
     const meta = this.initMeta();
     const tracer = new Tracer(this.enableTrace);
 
+    const safeInput = this.runGuard(input, tracer);
+
     // Stage 1: Booster
     if (this.cfg.enableBooster) {
       tracer.start('Booster');
-      const boosted = this.booster.tryResolve(input);
+      const boosted = this.booster.tryResolve(safeInput);
       if (boosted !== null) {
         tracer.end('Booster', { result: 'resolved' });
         return this.finalize(boosted, { ...meta, boosted: true }, start, input, true, tracer);
       }
       tracer.end('Booster', { result: 'pass-through' });
-    } else {
-      tracer.skip('Booster', 'disabled');
-    }
+    } else { tracer.skip('Booster', 'disabled'); }
 
     // Stage 2: Packer
-    let packed = input;
+    let packed = safeInput;
     if (this.cfg.enablePacker) {
       tracer.start('Packer');
-      const result = this.packer.pack(input, options.system);
+      const result = this.packer.pack(safeInput, options.system);
       packed = result.packed;
       meta.packed = true;
       meta.contextSavings = result.savings;
       tracer.end('Packer', { savings: result.savings });
-    } else {
-      tracer.skip('Packer', 'disabled');
-    }
+    } else { tracer.skip('Packer', 'disabled'); }
 
     // Stage 3: Cache
     if (this.cfg.enableCache) {
@@ -102,22 +107,16 @@ export class ClawPipe {
         return this.finalize(cached, { ...meta, cached: true }, start, input, false, tracer);
       }
       tracer.end('Cache', { result: 'miss' });
-    } else {
-      tracer.skip('Cache', 'disabled');
-    }
+    } else { tracer.skip('Cache', 'disabled'); }
 
-    // Stage 4: Route (with allowlist filtering)
+    // Stage 4+5: Route + Circuit breaker
     tracer.start('Router');
     const route = this.router.route(packed, options);
-    if (!this.allowlist.isPermitted(route.provider, route.model)) {
+    if (!this.allowlist.isPermitted(route.provider, route.model))
       throw new Error(`Model ${route.provider}:${route.model} is not permitted by allowlist`);
-    }
     tracer.end('Router', { model: `${route.provider}:${route.model}` });
-
-    // Stage 5: Circuit breaker check
-    if (!this.circuitBreaker.isAvailable(route.provider)) {
+    if (!this.circuitBreaker.isAvailable(route.provider))
       throw new Error(`Provider ${route.provider} circuit is open (too many failures)`);
-    }
     meta.route = route.provider;
     meta.model = route.model;
     meta.circuitBreakerState = this.circuitBreaker.status(route.provider).state;
@@ -155,6 +154,21 @@ export class ClawPipe {
   circuitStatus() { return this.circuitBreaker.allStatuses(); }
   auditLogs() { return this.audit.getLogs(); }
 
+  private runGuard(input: string, tracer: Tracer): string {
+    if (!this.enableGuard) { tracer.skip('Guard', 'disabled'); return input; }
+    tracer.start('Guard');
+    const r = this.guard.check(input);
+    tracer.end('Guard', { safe: r.safe, score: r.injectionScore, detections: r.detections.length });
+    if (r.detections.length > 0) this.audit.log({
+      action: 'guard_detection', provider: '', model: '', tokensIn: 0, tokensOut: 0,
+      latencyMs: 0, estimatedCostUsd: 0, cached: false, boosted: false,
+      promptHash: AuditLogger.hashPrompt(input),
+    });
+    if (!r.safe)
+      throw new GuardError(`Prompt injection detected (score=${r.injectionScore.toFixed(2)})`, r);
+    return r.redactedText;
+  }
+
   private initMeta(): PipelineMeta {
     return {
       boosted: false, cached: false, packed: false, contextSavings: '0%',
@@ -191,4 +205,5 @@ export class ClawPipe {
     return result;
   }
 }
+
 

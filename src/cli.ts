@@ -10,12 +10,14 @@
  */
 
 import { ClawPipe } from './index';
+import { analyzeCommand } from './cli-analyze';
 
 const HELP = `
 ClawPipe CLI — The intelligent AI pipeline.
 
 Usage:
   clawpipe prompt <text>     Send a prompt through the pipeline
+  clawpipe analyze [path]    Scan a codebase and estimate savings
   clawpipe test              Test pipeline connectivity
   clawpipe stats             Show telemetry stats
   clawpipe config            Show current configuration
@@ -29,6 +31,8 @@ Options:
   --no-booster               Disable booster for this request
   --system <text>            Set system prompt
   --trace                    Show pipeline stage timing breakdown
+  --output json              (analyze) Emit machine-readable JSON
+  --limit <n>                (analyze) Number of top files to show
 
 Environment:
   CLAWPIPE_API_KEY           API key (required for gateway calls)
@@ -47,6 +51,11 @@ async function main(): Promise<void> {
 
   if (command === 'version' || command === '--version') {
     console.log('clawpipe-ai v3.0.0');
+    return;
+  }
+
+  if (command === 'analyze') {
+    analyzeCommand(args);
     return;
   }
 

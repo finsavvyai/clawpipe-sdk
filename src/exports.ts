@@ -11,6 +11,8 @@ export type { SwarmConfig, SwarmStrategy, SwarmResult, SwarmCandidate } from './
 export type { SemanticCacheConfig } from './semantic-cache';
 export type { StageTrace, TraceEvent } from './tracer';
 export type { StoredWeight } from './weight-store';
+export type { GuardConfig, GuardResult } from './guard';
+export type { ModerationConfig, ModerationResult } from './moderation';
 
 export { Booster } from './booster';
 export { Packer } from './packer';
@@ -34,3 +36,5 @@ export { Rag } from './rag';
 export { OpenAI as OpenAICompat } from './openai-compat';
 export type { ChatCompletion, ChatCompletionMessage, Choice, CompletionUsage } from './openai-compat';
 export type { OpenAIConfig, CreateParams } from './openai-compat';
+export { Guard, GuardError } from './guard';
+export { Moderation } from './moderation';
