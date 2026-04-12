@@ -50,7 +50,7 @@ export class ClawPipe {
       transport: config.auditTransport ?? null,
     });
     this.enableTrace = config.enableTrace ?? false;
-    this.enableGuard = config.enableGuard ?? false;
+    this.enableGuard = config.enableGuard ?? true;
     this.guard = new Guard({
       blockOnInjection: config.guardBlockOnInjection ?? false,
       injectionThreshold: config.guardInjectionThreshold,

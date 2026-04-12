@@ -42,7 +42,8 @@ export class Telemetry {
   /** Estimate cost in USD for a request. */
   estimateCost(provider: string, model: string, tokensIn: number, tokensOut: number): number {
     const key = `${provider}:${model}`;
-    const rate = COST_TABLE[key] ?? 0.001; // fallback rate
+    // Conservative high fallback: overestimates rather than underestimates cost for unknown models.
+    const rate = COST_TABLE[key] ?? 0.015;
     return ((tokensIn + tokensOut) / 1000) * rate;
   }
 

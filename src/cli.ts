@@ -123,9 +123,9 @@ async function runPrompt(pipe: ClawPipe, args: string[]): Promise<void> {
     textParts.push(args[i]);
   }
 
-  const text = textParts.join(' ');
+  const text = textParts.join(' ').trim();
   if (!text) {
-    console.error('Usage: clawpipe prompt "your prompt here"');
+    console.error('Error: prompt cannot be empty.\nUsage: clawpipe prompt "your prompt here"');
     process.exit(1);
   }
 
