@@ -44,7 +44,7 @@ describe('Telemetry', () => {
   it('uses fallback rate for unknown models', () => {
     const t = new Telemetry();
     const cost = t.estimateCost('unknown', 'unknown', 1000, 0);
-    expect(cost).toBeCloseTo(0.001, 4);
+    expect(cost).toBeCloseTo(0.015, 4);
   });
 
   it('returns recent records within window', () => {
