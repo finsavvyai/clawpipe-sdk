@@ -14,6 +14,9 @@ import {
   datetimeRules,
   mathRules,
   codeRules,
+  statsRules,
+  encodingRules,
+  financeRules,
 } from './booster-rules';
 
 export type { BoosterRule } from './booster-rules';
@@ -26,6 +29,9 @@ const allDefaultRules: BoosterRule[] = [
   ...datetimeRules,
   ...mathRules,
   ...codeRules,
+  ...statsRules,
+  ...encodingRules,
+  ...financeRules,
 ];
 
 export class Booster {
