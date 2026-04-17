@@ -40,3 +40,4 @@ export type { ChatCompletion, ChatCompletionMessage, Choice, CompletionUsage } f
 export type { OpenAIConfig, CreateParams } from './openai-compat';
 export { Guard, GuardError } from './guard';
 export { Moderation } from './moderation';
+export { QualityMode, CheapMode, BalancedMode, withPreset } from './presets';
