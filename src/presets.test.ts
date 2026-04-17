@@ -11,6 +11,7 @@ describe('presets', () => {
     expect(CheapMode.enableCache).toBe(true);
     expect(CheapMode.cacheTtlMs).toBe(24 * 60 * 60 * 1000);
     expect(CheapMode.allowlist?.length).toBeGreaterThan(0);
+    expect(CheapMode.allowlist?.[0]?.provider).toBeTypeOf('string');
   });
 
   it('BalancedMode keeps all safeties on with 1h cache', () => {

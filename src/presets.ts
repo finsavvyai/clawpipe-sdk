@@ -25,11 +25,11 @@ export const CheapMode: Preset = {
   enableGuard: true,
   guardBlockOnInjection: false,
   allowlist: [
-    'deepseek:*',
-    'groq:*',
-    'mistral:mistral-small-latest',
-    'anthropic:claude-haiku-4-5',
-    'openai:gpt-4o-mini',
+    { provider: 'deepseek' },
+    { provider: 'groq' },
+    { provider: 'mistral', model: 'mistral-small-latest' },
+    { provider: 'anthropic', model: 'claude-haiku-4-5' },
+    { provider: 'openai', model: 'gpt-4o-mini' },
   ],
 };
 
