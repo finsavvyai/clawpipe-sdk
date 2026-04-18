@@ -42,6 +42,8 @@ export interface ClawPipeConfig {
   guardBlockOnInjection?: boolean;
   /** Injection score threshold [0,1]. Default: 0.5. */
   guardInjectionThreshold?: number;
+  /** Guard registry plugin rules. Run pre/post around the provider call. */
+  guardRules?: Array<{ guard: string; config?: unknown; blockOnFail?: boolean }>;
 }
 
 export interface PromptOptions {

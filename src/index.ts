@@ -12,17 +12,20 @@ import { Allowlist } from './allowlist';
 import { AuditLogger } from './audit';
 import { Tracer } from './tracer';
 import { Guard, GuardError } from './guard';
+import type { GuardRule } from './guards';
+import { PipelineGuards } from './pipeline-guards';
 import type { ClawPipeConfig, PromptOptions, PipelineMeta, PipelineResult } from './types';
 export * from './exports';
 
 const DEFAULT_GATEWAY = 'https://api.clawpipe.ai/v1';
 
-/** ClawPipe client — runs the full pipeline on every prompt. */
 export class ClawPipe {
   private booster: Booster; private packer: Packer; private cache: Cache; private router: Router;
   private gateway: Gateway; private telemetry: Telemetry; private budget: Budget;
   private rateLimiter: RateLimiter; private circuitBreaker: CircuitBreaker;
   private allowlist: Allowlist; private audit: AuditLogger; private guard: Guard;
+  private pipelineGuards = new PipelineGuards();
+  private guardRules: GuardRule[];
   private enableGuard: boolean; private enableTrace: boolean;
   private cfg: Required<Pick<ClawPipeConfig, 'enableBooster' | 'enablePacker' | 'enableCache'>>;
 
@@ -51,13 +54,13 @@ export class ClawPipe {
     });
     this.enableTrace = config.enableTrace ?? false;
     this.enableGuard = config.enableGuard ?? true;
+    this.guardRules = config.guardRules ?? [];
     this.guard = new Guard({
       blockOnInjection: config.guardBlockOnInjection ?? false,
       injectionThreshold: config.guardInjectionThreshold,
     });
   }
 
-  /** Send a prompt through the full pipeline. */
   async prompt(input: string, options: PromptOptions = {}): Promise<PipelineResult> {
     this.rateLimiter.check();
     this.budget.check();
@@ -65,9 +68,15 @@ export class ClawPipe {
     const meta = this.initMeta();
     const tracer = new Tracer(this.enableTrace);
 
-    const safeInput = this.runGuard(input, tracer);
+    let safeInput = this.runGuard(input, tracer);
+    if (this.guardRules.length) {
+      tracer.start('GuardRegistry');
+      const r = await this.pipelineGuards.runPre(safeInput, this.guardRules, { system: options.system, model: options.model, provider: options.provider });
+      tracer.end('GuardRegistry', { blocked: r.blocked });
+      if (r.blocked) throw new GuardError(`guard rule failed: ${r.reason}`, { safe: false, redactedText: safeInput, originalText: input, detections: [], injectionScore: 0 });
+      safeInput = r.prompt;
+    }
 
-    // Stage 1: Booster
     if (this.cfg.enableBooster) {
       tracer.start('Booster');
       const boosted = this.booster.tryResolve(safeInput);
@@ -78,7 +87,6 @@ export class ClawPipe {
       tracer.end('Booster', { result: 'pass-through' });
     } else { tracer.skip('Booster', 'disabled'); }
 
-    // Stage 2: Packer
     let packed = safeInput;
     if (this.cfg.enablePacker) {
       tracer.start('Packer');
@@ -89,7 +97,6 @@ export class ClawPipe {
       tracer.end('Packer', { savings: result.savings });
     } else { tracer.skip('Packer', 'disabled'); }
 
-    // Stage 3: Cache
     if (this.cfg.enableCache) {
       tracer.start('Cache');
       const cached = this.cache.get(this.cache.key(packed, options));
@@ -100,7 +107,6 @@ export class ClawPipe {
       tracer.end('Cache', { result: 'miss' });
     } else { tracer.skip('Cache', 'disabled'); }
 
-    // Stage 4+5: Route + Circuit breaker
     tracer.start('Router');
     const route = this.router.route(packed, options);
     if (!this.allowlist.isPermitted(route.provider, route.model))
@@ -129,9 +135,6 @@ export class ClawPipe {
       throw err;
     }
   }
-
-
-  /** Stream a prompt through the pipeline. */
   async *stream(input: string, options: PromptOptions = {}): AsyncGenerator<string> {
     this.rateLimiter.check();
     const packed = this.cfg.enablePacker ? this.packer.pack(input, options.system).packed : input;
@@ -139,13 +142,11 @@ export class ClawPipe {
     this.rateLimiter.record();
     yield* this.gateway.stream(packed, options, route);
   }
-
   stats() { return this.telemetry.snapshot(); }
   budgetStatus() { return this.budget.status(); }
   rateLimitStatus() { return this.rateLimiter.status(); }
   circuitStatus() { return this.circuitBreaker.allStatuses(); }
   auditLogs() { return this.audit.getLogs(); }
-
   private runGuard(input: string, tracer: Tracer): string {
     if (!this.enableGuard) { tracer.skip('Guard', 'disabled'); return input; }
     tracer.start('Guard');
