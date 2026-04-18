@@ -41,3 +41,5 @@ export type { OpenAIConfig, CreateParams } from './openai-compat';
 export { Guard, GuardError } from './guard';
 export { Moderation } from './moderation';
 export { QualityMode, CheapMode, BalancedMode, withPreset } from './presets';
+export { RouterTags } from './router-tags';
+export type { TagRule, RouteFilterContext } from './router-tags';

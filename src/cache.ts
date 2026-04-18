@@ -37,8 +37,14 @@ export class Cache {
     return this.hash(raw);
   }
 
-  /** Get a cached value. Returns null if not found or expired. */
-  get(cacheKey: string): string | null {
+  /** Get a cached value. Returns null if not found or expired.
+   * Pass `{forceRefresh: true}` to bypass cache and invalidate the entry. */
+  get(cacheKey: string, opts: { forceRefresh?: boolean } = {}): string | null {
+    if (opts.forceRefresh) {
+      this.store.delete(cacheKey);
+      this.totalMisses++;
+      return null;
+    }
     const entry = this.store.get(cacheKey);
     if (!entry) {
       this.totalMisses++;
