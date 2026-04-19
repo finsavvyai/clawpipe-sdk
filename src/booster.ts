@@ -25,6 +25,10 @@ import {
   scienceRules,
   logicRules,
   miscRules,
+  isoRules,
+  cryptoRules,
+  awsRules,
+  markupRules,
 } from './booster-rules';
 
 export type { BoosterRule } from './booster-rules';
@@ -48,6 +52,10 @@ const allDefaultRules: BoosterRule[] = [
   ...scienceRules,
   ...logicRules,
   ...miscRules,
+  ...isoRules,
+  ...cryptoRules,
+  ...awsRules,
+  ...markupRules,
 ];
 
 export class Booster {

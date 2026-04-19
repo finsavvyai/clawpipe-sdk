@@ -20,3 +20,7 @@ export { timeRules } from './time-rules';
 export { scienceRules } from './science-rules';
 export { logicRules } from './logic-rules';
 export { miscRules } from './misc-rules';
+export { isoRules } from './iso-rules';
+export { cryptoRules } from './crypto-rules';
+export { awsRules } from './aws-rules';
+export { markupRules } from './markup-rules';

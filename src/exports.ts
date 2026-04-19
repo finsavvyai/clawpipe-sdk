@@ -53,6 +53,8 @@ export { leaf, fallback, loadbalance, resolveTargets } from './router-targets';
 export type { Target, LeafTarget, StrategyTarget } from './router-targets';
 export { checkBudgetChain, applySpend } from './budget-tree';
 export type { BudgetNode, BudgetCheck } from './budget-tree';
+export { toolsForProvider, parseToolCalls, runToolCall } from './tools';
+export type { Tool, ToolCall, JsonSchema, ProviderName as ToolProvider } from './tools';
 export { GuardRegistry, createDefaultGuards, defaultGuards } from './guards';
 export type { GuardPlugin, GuardContext, GuardOutcome, GuardRule, GuardRunResult } from './guards';
 export { ok, err, unwrap, map as mapResult, andThen, tryFn, tryAsync } from './util/result';
