@@ -59,3 +59,5 @@ export { GuardRegistry, createDefaultGuards, defaultGuards } from './guards';
 export type { GuardPlugin, GuardContext, GuardOutcome, GuardRule, GuardRunResult } from './guards';
 export { ok, err, unwrap, map as mapResult, andThen, tryFn, tryAsync } from './util/result';
 export type { Result, Ok, Err } from './util/result';
+export { ClawSession, MemorySessionStore } from './session';
+export type { Message, SessionState, SessionStore } from './session';
