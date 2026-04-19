@@ -29,6 +29,13 @@ import {
   cryptoRules,
   awsRules,
   markupRules,
+  geometryRules,
+  stringExtraRules,
+  mathExtraRules,
+  physicsRules,
+  chemistryRules,
+  musicRules,
+  financeExtraRules,
 } from './booster-rules';
 
 export type { BoosterRule } from './booster-rules';
@@ -56,6 +63,13 @@ const allDefaultRules: BoosterRule[] = [
   ...cryptoRules,
   ...awsRules,
   ...markupRules,
+  ...geometryRules,
+  ...stringExtraRules,
+  ...mathExtraRules,
+  ...physicsRules,
+  ...chemistryRules,
+  ...musicRules,
+  ...financeExtraRules,
 ];
 
 export class Booster {
