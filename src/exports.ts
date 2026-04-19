@@ -61,3 +61,5 @@ export { ok, err, unwrap, map as mapResult, andThen, tryFn, tryAsync } from './u
 export type { Result, Ok, Err } from './util/result';
 export { ClawSession, MemorySessionStore } from './session';
 export type { Message, SessionState, SessionStore } from './session';
+export { classifyM365Intent, getM365IntentRules } from './booster-rules';
+export type { M365Intent } from './booster-rules';

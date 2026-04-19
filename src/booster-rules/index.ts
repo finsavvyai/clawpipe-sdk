@@ -31,3 +31,5 @@ export { physicsRules } from './physics-rules';
 export { chemistryRules } from './chemistry-rules';
 export { musicRules } from './music-rules';
 export { financeExtraRules } from './finance-extra-rules';
+export { classifyM365Intent, getM365IntentRules } from './m365-intent';
+export type { M365Intent } from './m365-intent';
