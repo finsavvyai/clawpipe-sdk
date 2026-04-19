@@ -17,6 +17,14 @@ import {
   statsRules,
   encodingRules,
   financeRules,
+  regexRules,
+  formatRules,
+  colorRules,
+  devRules,
+  timeRules,
+  scienceRules,
+  logicRules,
+  miscRules,
 } from './booster-rules';
 
 export type { BoosterRule } from './booster-rules';
@@ -32,6 +40,14 @@ const allDefaultRules: BoosterRule[] = [
   ...statsRules,
   ...encodingRules,
   ...financeRules,
+  ...regexRules,
+  ...formatRules,
+  ...colorRules,
+  ...devRules,
+  ...timeRules,
+  ...scienceRules,
+  ...logicRules,
+  ...miscRules,
 ];
 
 export class Booster {
