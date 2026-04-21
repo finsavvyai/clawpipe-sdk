@@ -63,3 +63,7 @@ export { ClawSession, MemorySessionStore } from './session';
 export type { Message, SessionState, SessionStore } from './session';
 export { classifyM365Intent, getM365IntentRules } from './booster-rules';
 export type { M365Intent } from './booster-rules';
+export { PromptClient } from './prompt-client';
+export type { PromptClientConfig } from './prompt-client';
+export { scoreResponse, parseScore } from './scorer';
+export type { ScorerConfig } from './scorer';

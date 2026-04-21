@@ -108,7 +108,7 @@ export class ClawPipe {
     } else { tracer.skip('Cache', 'disabled'); }
 
     tracer.start('Router');
-    const route = this.router.route(packed, options);
+    const route = await this.router.route(packed, options);
     if (!this.allowlist.isPermitted(route.provider, route.model))
       throw new Error(`Model ${route.provider}:${route.model} is not permitted by allowlist`);
     tracer.end('Router', { model: `${route.provider}:${route.model}` });
@@ -138,7 +138,7 @@ export class ClawPipe {
   async *stream(input: string, options: PromptOptions = {}): AsyncGenerator<string> {
     this.rateLimiter.check();
     const packed = this.cfg.enablePacker ? this.packer.pack(input, options.system).packed : input;
-    const route = this.router.route(packed, options);
+    const route = await this.router.route(packed, options);
     this.rateLimiter.record();
     yield* this.gateway.stream(packed, options, route);
   }

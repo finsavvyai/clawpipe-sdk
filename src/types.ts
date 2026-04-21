@@ -105,6 +105,7 @@ export interface GatewayResponse {
   tokensIn: number;
   tokensOut: number;
   latencyMs: number;
+  request_id?: string;
 }
 
 export interface TelemetrySnapshot {
