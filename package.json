@@ -4,6 +4,20 @@
   "description": "The intelligent AI pipeline. Booster, Context Packing, Caching, Smart Routing, Multi-Provider Gateway, Budget Caps, Rate Limiting, Circuit Breaker, Audit Logging — all in one SDK.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./openai-compat": {
+      "import": "./dist/openai-compat.js",
+      "types": "./dist/openai-compat.d.ts"
+    },
+    "./anthropic-compat": {
+      "import": "./dist/anthropic-compat.js",
+      "types": "./dist/anthropic-compat.d.ts"
+    }
+  },
   "bin": {
     "clawpipe": "dist/cli.js"
   },
