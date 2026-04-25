@@ -197,4 +197,3 @@ export class ClawPipe {
     return result;
   }
 }
-

@@ -45,7 +45,6 @@ const FILLER: Array<[RegExp, string]> = [
 
 const QWORDS = new Set(['what', 'how', 'why', 'when', 'where', 'who', 'which']);
 const LIST_SW = new Set(['the', 'a', 'an']);
-
 export class AdvancedPacker {
   pack(text: string, config: AdvancedPackConfig = {}): AdvancedPackResult {
     const mode = config.mode ?? 'balanced';
