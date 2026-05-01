@@ -32,9 +32,9 @@ prompts contain regulated data, leave the semantic cache disabled.
 
 ## Compliance
 
-ClawPipe does not currently hold third-party security certifications (SOC 2,
-ISO 27001, etc.). Status updates will be published here as our compliance
-program matures.
+ClawPipe does not hold third-party security certifications (SOC 2, ISO 27001,
+etc.) and is not currently pursuing them. We will update this section if that
+changes.
 
 ## Encryption
 
