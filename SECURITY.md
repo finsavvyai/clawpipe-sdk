@@ -2,9 +2,10 @@
 
 ## Reporting a vulnerability
 
-Email security@clawpipe.ai with a description and reproduction steps. We aim
-to acknowledge within two business days. Please do not file public GitHub
-issues for security reports.
+Use GitHub's private vulnerability reporting on this repository: open the
+**Security** tab and click **Report a vulnerability**. We aim to acknowledge
+within two business days. Please do not file public GitHub issues for security
+reports.
 
 ## Supported versions
 
