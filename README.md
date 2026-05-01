@@ -10,7 +10,7 @@ ClawPipe is an LLM pipeline that sits between your app and providers. The
 **Booster** stage answers deterministic prompts (math, regex, dates, hashes,
 JSON shaping, ~200 rules) with zero LLM tokens — sub-millisecond, free.
 Everything else flows through context packing, prompt cache, smart routing,
-multi-provider gateway, and a self-learning router that gets cheaper over time.
+and a multi-provider gateway.
 
 Drop it in front of your existing OpenAI or Anthropic code and cut spend
 30-50% without changing application logic.
@@ -45,7 +45,7 @@ target.
 |------------|---------------------------------------------------------------|
 | Booster    | Deterministic transforms — skip LLM calls entirely.           |
 | Packer     | Compress context to reduce tokens before send.                |
-| Cache      | Hash-based prompt dedup (local + remote KV).                  |
+| Cache      | Hash dedup + opt-in semantic cache (see SECURITY.md).         |
 | Router     | Cost / quality / latency-aware model selection.               |
 | Gateway    | Multi-provider dispatch with failover and circuit breaking.   |
 | Learner    | Tracks outcomes, refines routing weights per task type.       |
